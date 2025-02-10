@@ -16,6 +16,10 @@ def create_graph():
 
     # Create interactive Pyvis network
     net = Network(height="800px", width="100%", directed=True)
+    
+    # For adding all physics parameters in menu, not needed since found best representation for now
+    # net.show_buttons(filter_=['physics'])
+    
 
     # Use ForceAtlas2 for better node spreading
     net.force_atlas_2based(
@@ -25,8 +29,11 @@ def create_graph():
         damping=0.9  # Stabilizes movement
     )
 
-    # Use a better layout
-    net.barnes_hut(gravity=53000, central_gravity=0.01, spring_length=300, damping=0.8)
+    # Use a better layout with other algorithm Thant Force Atlas 2
+    # net.barnes_hut(gravity=53000, central_gravity=0.01, spring_length=300, damping=0.8)
+
+    # Disable physics to stop continuous movement
+    #net.toggle_physics(False)
 
     # Get traffic range (for scaling colors)
     max_degree = max(dict(G.degree()).values()) if G.number_of_nodes() > 0 else 1
@@ -44,7 +51,8 @@ def create_graph():
     for node in G.nodes():
         degree = G.degree(node)
         color = get_node_color(degree, max_degree)
-        net.add_node(node, label=node, size=degree * 8, color=color)
+        net.add_node(node, label=node, size=degree, color=color)
+
 
     # Add edges with weight labels
     for edge in G.edges(data=True):
@@ -55,57 +63,6 @@ def create_graph():
     # Save graph in templates folder
     graph_path = "templates/graph.html"
     net.save_graph(graph_path)
-
-    # Inject JavaScript for on-click repositioning
-    custom_js = """
-    <script type="text/javascript">
-    function repositionGraph(params) {
-        if (params.nodes.length > 0) {
-            var nodeId = params.nodes[0];
-            var edges = network.body.data.edges.get();
-
-            var incoming = edges.filter(edge => edge.to === nodeId).map(edge => edge.from);
-            var outgoing = edges.filter(edge => edge.from === nodeId).map(edge => edge.to);
-
-            var positions = network.getPositions();
-            var centerX = 0;
-            var centerY = 0;
-
-            // Move selected node to center
-            positions[nodeId] = {x: centerX, y: centerY};
-
-            // Arrange incoming nodes to the left
-            incoming.forEach((node, index) => {
-                positions[node] = {x: centerX - 300, y: centerY + index * 50};
-            });
-
-            // Arrange outgoing nodes to the right
-            outgoing.forEach((node, index) => {
-                positions[node] = {x: centerX + 300, y: centerY + index * 50};
-            });
-
-            // Apply new positions
-            network.moveTo({position: {x: centerX, y: centerY}, scale: 1});
-            network.setOptions({layout: {randomSeed: 2}});
-            network.setData({nodes: network.body.data.nodes, edges: network.body.data.edges});
-        }
-    }
-
-    // Bind click event to function
-    network.on("click", repositionGraph);
-    </script>
-    """
-
-    # Inject JavaScript manually into the saved HTML
-    with open(graph_path, "r", encoding="utf-8") as f:
-        html_content = f.read()
-
-    # Append the JavaScript code before </body>
-    html_content = html_content.replace("</body>", custom_js + "</body>")
-
-    # Save the modified HTML file
-    with open(graph_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
 
     return graph_path
 
