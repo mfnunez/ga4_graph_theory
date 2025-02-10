@@ -17,6 +17,10 @@ def create_graph():
     # Create interactive Pyvis network
     net = Network(height="800px", width="100%", directed=True)
     
+    # For adding all physics parameters in menu, not needed since found best representation for now
+    # net.show_buttons(filter_=['physics'])
+    
+
     # Use ForceAtlas2 for better node spreading
     net.force_atlas_2based(
         gravity=-6000,  # Stronger repulsion (negative value)
@@ -25,8 +29,8 @@ def create_graph():
         damping=0.9  # Stabilizes movement
     )
 
-    # Use a better layout
-    net.barnes_hut(gravity=53000, central_gravity=0.01, spring_length=300, damping=0.8)
+    # Use a better layout with other algorithm Thant Force Atlas 2
+    # net.barnes_hut(gravity=53000, central_gravity=0.01, spring_length=300, damping=0.8)
 
     # Disable physics to stop continuous movement
     #net.toggle_physics(False)
@@ -47,7 +51,7 @@ def create_graph():
     for node in G.nodes():
         degree = G.degree(node)
         color = get_node_color(degree, max_degree)
-        net.add_node(node, label=node, size=degree * 8, color=color)
+        net.add_node(node, label=node, size=degree, color=color)
 
 
     # Add edges with weight labels
