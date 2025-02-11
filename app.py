@@ -15,10 +15,12 @@ def create_graph():
         G.add_edge(row['from_page'], row['to_page'], weight=row['transition_count'])
 
     # Create interactive Pyvis network
-    net = Network(height="800px", width="100%", directed=True)
+    net = Network(height="800px", width="100%", directed=True,select_menu=True, filter_menu=True, cdn_resources='remote')
+    # Disable physics to stop continuous movement
+    net.toggle_physics(True)
     
     # For adding all physics parameters in menu, not needed since found best representation for now
-    # net.show_buttons(filter_=['physics'])
+    net.show_buttons(filter_=['physics'])
     
 
     # Use ForceAtlas2 for better node spreading
@@ -32,8 +34,7 @@ def create_graph():
     # Use a better layout with other algorithm Thant Force Atlas 2
     # net.barnes_hut(gravity=53000, central_gravity=0.01, spring_length=300, damping=0.8)
 
-    # Disable physics to stop continuous movement
-    #net.toggle_physics(False)
+    
 
     # Get traffic range (for scaling colors)
     max_degree = max(dict(G.degree()).values()) if G.number_of_nodes() > 0 else 1
@@ -51,7 +52,7 @@ def create_graph():
     for node in G.nodes():
         degree = G.degree(node)
         color = get_node_color(degree, max_degree)
-        net.add_node(node, label=node, size=degree, color=color)
+        net.add_node(node, label=node, size=degree*3, color=color)
 
 
     # Add edges with weight labels
