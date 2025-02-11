@@ -52,14 +52,16 @@ def create_graph():
     for node in G.nodes():
         degree = G.degree(node)
         color = get_node_color(degree, max_degree)
-        net.add_node(node, label=node, size=degree*3, color=color)
+        net.add_node(node, label=node, size=degree, color=color)
 
 
     # Add edges with weight labels
-    for edge in G.edges(data=True):
-        net.add_edge(edge[0], edge[1], title=f"Count: {edge[2]['weight']}")
+    #for edge in G.edges(data=True):
+         #net.add_edge(edge[0], edge[1], title=f"Count: {edge[2]['weight']}")
 
     net.from_nx(G)
+
+
 
     # Save graph in templates folder
     graph_path = "templates/graph.html"
