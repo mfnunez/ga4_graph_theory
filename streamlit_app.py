@@ -57,13 +57,13 @@ def create_graph():
     
     # Add Edges to networkX Graph object
     for index, row in df.iterrows():
-        title_node = str(row['transition_count'])
-        G.add_edge(row['from_page'], row['to_page'], transition_count=row['transition_count'], title=title_node)
+        title_edge = str(row['transition_count'])
+        G.add_edge(row['from_page'], row['to_page'], transition_count=row['transition_count'], title=title_edge)
     
     # Add Nodes to networkX Graph object
     for index, row in dt.iterrows():
-        title_edge = str(row['pageview_count'])
-        G.add_node(row['page_location'], page_view_count=row['pageview_count'], title= title_edge)
+        title_node = str(row['pageview_count'])
+        G.add_node(row['page_location'], page_view_count=row['pageview_count'], title= title_node)
     return G
 
 def create_pyvis_graph(G):
@@ -116,8 +116,8 @@ def calculate_kpis(G):
     kpis['weakly_connected_explanation'] = "Weakly Connected Components: Identifies groups of pages that are reachable from each other, but not necessarily in a directed way. A large number of components with very few nodes each, are Orphaned pages (pages not connected to the rest of the site)."
 
     # 5. Shortest Path Analysis
-    source = st.sidebar.text_input("Shortest Path Source Page", value="homepage")
-    target = st.sidebar.text_input("Shortest Path Target Page", value="buypath")
+    source = st.sidebar.text_input("Shortest Path Source Page", value=betweenness_centrality[0])
+    target = st.sidebar.text_input("Shortest Path Target Page", value=betweenness_centrality[1])
     kpis['shortest_path_source'] = source
     kpis['shortest_path_target'] = target
     try:
