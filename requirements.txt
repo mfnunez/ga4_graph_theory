@@ -8,3 +8,4 @@ scipy
 google-cloud-aiplatform
 google-cloud-logging
 google-cloud-bigquery
+db-dtypes
