@@ -110,14 +110,15 @@ def calculate_kpis(G):
     kpis['betweenness_centrality_explanation'] = "Betweenness Centrality: Identifies pages that act as bridges in the user flow. Higher values indicate pages that are critical for connecting different parts of the site (potential bottlenecks)."
 
     # 4. Weakly Connected Components
+    weak_constant = st.sidebar.text_input("Number of pageviews",value=2)
     weakly_connected_components = list(nx.weakly_connected_components(G))
     kpis['num_orphaned_components'] = len(weakly_connected_components)
-    kpis['orphaned_components'] = [component for component in weakly_connected_components if len(component) <= 5]
+    kpis['orphaned_components'] = [component for component in weakly_connected_components if len(component) <= weak_constant]
     kpis['weakly_connected_explanation'] = "Weakly Connected Components: Identifies groups of pages that are reachable from each other, but not necessarily in a directed way. A large number of components with very few nodes each, are Orphaned pages (pages not connected to the rest of the site)."
 
     # 5. Shortest Path Analysis
-    source = st.sidebar.text_input("Shortest Path Source Page", value=list(betweenness)[0])
-    target = st.sidebar.text_input("Shortest Path Target Page", value=list(betweenness)[1])
+    source = st.sidebar.text_input("Shortest Path Source Page", value=list(betweenness_centrality)[0])
+    target = st.sidebar.text_input("Shortest Path Target Page", value=list(betweenness_centrality)[1])
     kpis['shortest_path_source'] = source
     kpis['shortest_path_target'] = target
     try:
