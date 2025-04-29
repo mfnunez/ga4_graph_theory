@@ -5,12 +5,46 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import numpy as np
 import matplotlib.pyplot as plt
+from google.cloud import bigquery
 from community import community_louvain
 
-def create_graph():
-    df = pd.read_csv("all_ga4_edges.csv")
-    dt = pd.read_csv("all_ga4_nodes.csv")
 
+PROJECT_ID = "avisia-training"
+
+DATASET_ID = "avisia_graph_theory_analytics" 
+
+TABLE_NODES = "avisia_ga4_nodes"
+TABLE_EDGES = "avisia_ga4_edges"
+
+@st.cache_data  # Use caching for better performance
+def load_edges_data_from_bigquery():
+    """Loads data from BigQuery."""
+    client = bigquery.Client(project=PROJECT_ID)
+    query = f"""
+        SELECT *
+        FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_EDGES}`
+    """
+    query_job = client.query(query)  # Make an API request.
+    rows = query_job.result()  # Waits for query to finish.
+    df = rows.to_dataframe()
+    return df
+
+def load_nodes_data_from_bigquery():
+    """Loads data from BigQuery."""
+    client = bigquery.Client(project=PROJECT_ID)
+    query = f"""
+        SELECT *
+        FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_NODES}`
+    """
+    query_job = client.query(query)  # Make an API request.
+    rows = query_job.result()  # Waits for query to finish.
+    dt = rows.to_dataframe()
+    return dt
+
+def create_graph():
+
+    df = load_edges_data_from_bigquery()
+    dt = load_nodes_data_from_bigquery()
     # Transform data in 'all_ga4_edges.csv'
     df['from_page'] = df['from_page'].astype(str).apply(lambda x: 'productsheet_page' if '/productsheet/' in x else x)
     df['to_page'] = df['to_page'].astype(str).apply(lambda x: 'productsheet_page' if '/productsheet/' in x else x)
