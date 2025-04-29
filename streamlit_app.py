@@ -116,8 +116,8 @@ def calculate_kpis(G):
     kpis['weakly_connected_explanation'] = "Weakly Connected Components: Identifies groups of pages that are reachable from each other, but not necessarily in a directed way. A large number of components with very few nodes each, are Orphaned pages (pages not connected to the rest of the site)."
 
     # 5. Shortest Path Analysis
-    source = st.sidebar.text_input("Shortest Path Source Page", value=betweenness_centrality[0])
-    target = st.sidebar.text_input("Shortest Path Target Page", value=betweenness_centrality[1])
+    source = st.sidebar.text_input("Shortest Path Source Page", value=list(betweenness)[0])
+    target = st.sidebar.text_input("Shortest Path Target Page", value=list(betweenness)[1])
     kpis['shortest_path_source'] = source
     kpis['shortest_path_target'] = target
     try:
