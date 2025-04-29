@@ -1,4 +1,10 @@
 streamlit
 matplotlib
+pyvis
+networkx
+pandas
+python-louvain
+scipy
 google-cloud-aiplatform
 google-cloud-logging
+google-cloud-bigquery
