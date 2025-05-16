@@ -1,197 +1,234 @@
 import streamlit as st
-import networkx as nx
 import pandas as pd
-from pyvis.network import Network
-import streamlit.components.v1 as components
 import numpy as np
+import networkx as nx
+from pyvis.network import Network
 import matplotlib.pyplot as plt
-from google.cloud import bigquery
 from community import community_louvain
+from streamlit_option_menu import option_menu
+import streamlit.components.v1 as components
+from google.cloud import bigquery
 
+# ---- CONFIGURATION DE LA PAGE ----
+st.set_page_config(page_title="Avisia GA4 Navigator", page_icon="🧠", layout="wide")
 
+# ---- BIGQUERY CONFIG ----
 PROJECT_ID = "avisia-training"
-
-DATASET_ID = "avisia_graph_theory_analytics" 
-
+DATASET_ID = "avisia_graph_theory_analytics"
 TABLE_NODES = "avisia_ga4_nodes"
 TABLE_EDGES = "avisia_ga4_edges"
 
-@st.cache_data  # Use caching for better performance
+# ---- CSS DE LA PAGE D'ACCUEIL ----
+landing_css = """
+<style>
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(145deg, #f3f6fa 0%, #eaf0f8 100%);
+}
+.centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 90vh;
+    text-align: center;
+}
+.centered h1 {
+    font-size: 3.4rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: #005493;
+}
+.centered p {
+    font-size: 1.3rem;
+    color: #4a5568;
+    margin-bottom: 2rem;
+}
+div.stButton > button {
+    background-color: #005493;
+    color: white;
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 40px;
+    border: none;
+    transition: all 0.3s ease;
+}
+div.stButton > button:hover {
+    background-color: #003b6f;
+    transform: scale(1.05);
+    color: #ffffff;
+}
+</style>
+"""
+
+# ---- ÉTAT SESSION POUR LA LANDING PAGE ----
+if 'page_started' not in st.session_state:
+    st.session_state.page_started = False
+
+# ---- AFFICHAGE LANDING ----
+if not st.session_state.page_started:
+    st.markdown(landing_css, unsafe_allow_html=True)
+    st.image("logo_avisia.png", width=130)
+    st.markdown("""
+    <div class="centered">
+        <h1>Bienvenue chez Avisia</h1>
+        <p>Visualisez et analysez vos parcours GA4 avec style et précision.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🚀 Get Started"):
+        st.session_state.page_started = True
+        st.rerun()
+    st.stop()
+
+# ---- SIDEBAR ----
+with st.sidebar:
+    st.image("logo_avisia.png", width=180)
+    selected = option_menu(
+        menu_title="Menu",
+        options=["Accueil", "Graph Analyse", "Contact"],
+        icons=["house", "graph-up", "envelope"],
+        menu_icon="cast",
+        default_index=0,
+    )
+    dark_mode = st.toggle("🌗 Mode sombre")
+
+# ---- THEME ----
+if dark_mode:
+    st.markdown("""
+    <style>
+    body { background-color: #1e1e1e; color: #e2e2e2; }
+    .kpi-card { background: #333; color: #f1f1f1; }
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+    .hero-section {
+        padding: 2rem;
+        background: linear-gradient(90deg, #5e72e4, #825ee4);
+        color: white;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    .kpi-grid {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+    }
+    .kpi-card {
+        flex: 1;
+        min-width: 220px;
+        background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+        border-radius: 16px;
+        color: white;
+        padding: 1rem 1.5rem;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease;
+    }
+    .kpi-card:hover { transform: translateY(-4px); }
+    .kpi-title { font-size: 0.95rem; opacity: 0.85; }
+    .kpi-value { font-size: 1.5rem; font-weight: bold; margin-top: 0.3rem; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ---- CHARGEMENT DES DONNÉES DEPUIS BIGQUERY ----
+@st.cache_data
 def load_edges_data_from_bigquery():
-    """Loads data from BigQuery."""
     client = bigquery.Client(project=PROJECT_ID)
-    query = f"""
-        SELECT *
-        FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_EDGES}`
-    """
-    query_job = client.query(query)  # Make an API request.
-    rows = query_job.result()  # Waits for query to finish.
-    df = rows.to_dataframe()
-    return df
+    query = f"SELECT * FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_EDGES}`"
+    return client.query(query).to_dataframe()
 
+@st.cache_data
 def load_nodes_data_from_bigquery():
-    """Loads data from BigQuery."""
     client = bigquery.Client(project=PROJECT_ID)
-    query = f"""
-        SELECT *
-        FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_NODES}`
-    """
-    query_job = client.query(query)  # Make an API request.
-    rows = query_job.result()  # Waits for query to finish.
-    dt = rows.to_dataframe()
-    return dt
+    query = f"SELECT * FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_NODES}`"
+    return client.query(query).to_dataframe()
 
+# ---- CRÉATION DU GRAPH ----
 def create_graph():
-
     df = load_edges_data_from_bigquery()
     dt = load_nodes_data_from_bigquery()
-    # Transform data in 'all_ga4_edges.csv'
     df['from_page'] = df['from_page'].astype(str).apply(lambda x: 'productsheet_page' if '/productsheet/' in x else x)
     df['to_page'] = df['to_page'].astype(str).apply(lambda x: 'productsheet_page' if '/productsheet/' in x else x)
-
-    # Transform data in 'all_ga4_nodes.csv'
     dt['page_location'] = dt['page_location'].astype(str).apply(lambda x: 'productsheet_page' if '/productsheet/' in x else x)
-
-    # Create a directed graph
     G = nx.DiGraph()
-    
-    # Add Edges to networkX Graph object
-    for index, row in df.iterrows():
-        title_edge = str(row['transition_count'])
-        G.add_edge(row['from_page'], row['to_page'], transition_count=row['transition_count'], title=title_edge)
-    
-    # Add Nodes to networkX Graph object
-    for index, row in dt.iterrows():
-        title_node = str(row['pageview_count'])
-        G.add_node(row['page_location'], page_view_count=row['pageview_count'], title= title_node)
+    for _, row in df.iterrows():
+        G.add_edge(row['from_page'], row['to_page'], transition_count=row['transition_count'])
+    for _, row in dt.iterrows():
+        G.add_node(row['page_location'], page_view_count=row['pageview_count'])
     return G
 
 def create_pyvis_graph(G):
-    # Create interactive Pyvis network
-    net = Network(height="800px", width="100%", directed=True, select_menu=True, filter_menu=True, cdn_resources='remote')
-    # Disable physics to stop continuous movement
+    net = Network(height="700px", width="100%", directed=True, select_menu=True, filter_menu=True, cdn_resources='remote')
+    net.force_atlas_2based(gravity=-6000, central_gravity=0.005, spring_length=900, damping=0.9)
     net.toggle_physics(True)
-
-    # Use ForceAtlas2 for better node spreading
-    net.force_atlas_2based(
-        gravity=-6000,  # Stronger repulsion (negative value)
-        central_gravity=0.005,  # Less central attraction
-        spring_length=900,  # Nodes spread further apart
-        damping=0.9  # Stabilizes movement
-    )
-    
-    # For adding all physics parameters in menu, not needed since found best representation for now
     net.show_buttons(filter_=['physics'])
     net.from_nx(G)
-    graph_html = net.generate_html()
-    return graph_html
+    return net.generate_html()
 
 def calculate_kpis(G):
     kpis = {}
-
-    # 1. Degree Centrality
-    degree_centrality = nx.degree_centrality(G)
-    kpis['degree_centrality'] = degree_centrality
-    kpis['most_visited_pages'] = sorted(degree_centrality, key=degree_centrality.get, reverse=True)[:5]  # Top 5
-    kpis['degree_centrality_explanation'] = "Degree Centrality: Measures the number of connections a node has. Higher values indicate more central (visited) pages."
-
-    # 2. PageRank
-    alpha = st.sidebar.slider("PageRank Alpha", min_value=0.05, max_value=0.95, value=0.85, step=0.05)
-    kpis['pagerank_alpha'] = alpha
-    pagerank = nx.pagerank(G, alpha=alpha)
-    kpis['pagerank'] = pagerank
-    kpis['most_influential_pages'] = sorted(pagerank, key=pagerank.get, reverse=True)[:5]  # Top 5
-    kpis['pagerank_explanation'] = f"PageRank: Measures the influence of pages based on the number and quality of incoming links (user flow). Alpha (damping factor) is set to {alpha} : It represents the probability that a user will continue navigating the site rather than randomly jumping to another page."
-
-    # 3. Betweenness Centrality
-    betweenness_centrality = nx.betweenness_centrality(G)
-    kpis['betweenness_centrality'] = betweenness_centrality
-    kpis['bottleneck_pages'] = sorted(betweenness_centrality, key=betweenness_centrality.get, reverse=True)[:5]  # Top 5
-    kpis['betweenness_centrality_explanation'] = "Betweenness Centrality: Identifies pages that act as bridges in the user flow. Higher values indicate pages that are critical for connecting different parts of the site (potential bottlenecks)."
-
-    # 4. Weakly Connected Components
-    weakly_connected_components = list(nx.weakly_connected_components(G))
-    kpis['num_orphaned_components'] = len(weakly_connected_components)
-    kpis['orphaned_components'] = [component for component in weakly_connected_components if len(component) <= 10]
-    kpis['weakly_connected_explanation'] = "Weakly Connected Components: Identifies groups of pages that are reachable from each other, but not necessarily in a directed way. A large number of components with very few nodes each, are Orphaned pages (pages not connected to the rest of the site)."
-
-    # 5. Shortest Path Analysis
-    source = st.sidebar.text_input("Shortest Path Source Page", value=list(betweenness_centrality)[0])
-    target = st.sidebar.text_input("Shortest Path Target Page", value=list(betweenness_centrality)[1])
-    kpis['shortest_path_source'] = source
-    kpis['shortest_path_target'] = target
+    degree = nx.degree_centrality(G)
+    pagerank = nx.pagerank(G, alpha=st.sidebar.slider("PageRank Alpha", 0.05, 0.95, 0.85, 0.05))
+    betweenness = nx.betweenness_centrality(G)
+    components = list(nx.weakly_connected_components(G))
+    kpis['top_degree'] = sorted(degree, key=degree.get, reverse=True)[:5]
+    kpis['top_pagerank'] = sorted(pagerank, key=pagerank.get, reverse=True)[:5]
+    kpis['top_betweenness'] = sorted(betweenness, key=betweenness.get, reverse=True)[:5]
+    kpis['orphaned_count'] = len([c for c in components if len(c) <= 10])
+    source = st.sidebar.text_input("Source", value=list(G.nodes)[0])
+    target = st.sidebar.text_input("Target", value=list(G.nodes)[1])
     try:
-        shortest_path = nx.shortest_path(G, source=source, target=target)
-        kpis['shortest_path'] = shortest_path
-    except nx.NetworkXNoPath:
-        kpis['shortest_path'] = "No path found between the source and target pages."
-    kpis['shortest_path_explanation'] = f"Shortest Path Analysis: Finds the shortest sequence of pages a user would navigate from a source ({source}) page to a target ({target}) page. It can help identify the most efficient user flows."
-
-    # 6. Community Detection (Louvain)
-    G_undirected = G.to_undirected()
-    partition = community_louvain.best_partition(G_undirected)
-    kpis['community_partition'] = partition
-
-    # Create a color map for each community
-    unique_clusters = list(set(partition.values()))
-    colors = {cluster: np.random.rand(3,) for cluster in unique_clusters}  # Random colors
-
-    # Assign colors to nodes based on their community
-    node_colors = [colors[partition[node]] for node in G_undirected.nodes()]
-
-    # Draw the graph
+        kpis['shortest_path'] = nx.shortest_path(G, source=source, target=target)
+    except:
+        kpis['shortest_path'] = "Pas de chemin trouvé."
+    partition = community_louvain.best_partition(G.to_undirected())
+    colors = {c: np.random.rand(3,) for c in set(partition.values())}
+    node_colors = [colors[partition[n]] for n in G.nodes()]
+    pos = nx.spring_layout(G, seed=42)
     plt.figure(figsize=(12, 8))
-    pos = nx.spring_layout(G_undirected, seed=42)  # Compute node positions
-    nx.draw(
-        G_undirected, pos, node_color=node_colors, with_labels=True,
-        edge_color='gray', node_size=500, font_size=8
-    )
-
-    plt.title("GA4 Navigation Graph with Louvain Community Clusters")
-    kpis['community_plot'] = plt  # Store the plot object to display in Streamlit
-    kpis['community_explanation'] = "Community Detection: Uses the Louvain algorithm to identify clusters of pages with high internal connectivity (pages that users tend to visit together).  This can reveal natural groupings of content or user interests."
-
+    nx.draw(G, pos, node_color=node_colors, with_labels=True, edge_color='gray', node_size=600, font_size=9)
+    plt.title("Détection de communautés (Louvain)")
+    kpis['community_plot'] = plt
     return kpis
 
-def main():
-    st.title("GA4 Navigation Graph Analysis")
+# ---- ROUTING ----
+if selected == "Accueil":
+    st.markdown("""
+        <div class="hero-section">
+            <h1>Let's Ride the Future.</h1>
+            <p>Une interface élégante pour explorer la navigation GA4, powered by Avisia.</p>
+        </div>
+    """, unsafe_allow_html=True)
 
+elif selected == "Graph Analyse":
+    st.title("📊 Analyse Graphique")
     G = create_graph()
-
-    # Display the pyvis graph
-    graph_html = create_pyvis_graph(G)
-    components.html(graph_html, height=800, scrolling=True)
-
-    st.header("Key Performance Indicators (KPIs)")
+    html = create_pyvis_graph(G)
+    components.html(html, height=720, scrolling=True)
 
     kpis = calculate_kpis(G)
+    st.markdown("<div class='kpi-grid'>", unsafe_allow_html=True)
+    for label, values in {
+        "Top Pages (Degré)": kpis['top_degree'],
+        "Pages Influentes (PageRank)": kpis['top_pagerank'],
+        "Bottlenecks (Betweenness)": kpis['top_betweenness'],
+        "Orphaned Clusters": [f"{kpis['orphaned_count']} groupes détectés"]
+    }.items():
+        st.markdown(f"""
+            <div class='kpi-card'>
+                <div class='kpi-title'>{label}</div>
+                <div class='kpi-value'>{'<br>'.join(values)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Display KPIs with explanations
-    st.subheader("1. Degree Centrality (Most Visited Pages)")
-    st.write(kpis['degree_centrality_explanation'])
-    st.write("Most visited pages:", kpis['most_visited_pages'])
-
-    st.subheader("2. PageRank (User Flow Influence)")
-    st.write(kpis['pagerank_explanation'])
-    st.write("Most influential pages:", kpis['most_influential_pages'])
-
-    st.subheader("3. Betweenness Centrality (Bottlenecks)")
-    st.write(kpis['betweenness_centrality_explanation'])
-    st.write("Bottleneck pages:", kpis['bottleneck_pages'])
-
-    st.subheader("4. Weakly Connected Components (Orphaned Pages)")
-    st.write(kpis['weakly_connected_explanation'])
-    st.write(f"Number of orphaned components: {kpis['num_orphaned_components']}")
-    st.write("Orphaned components (<= 10 pages):", kpis['orphaned_components'])
-
-    st.subheader("5. Shortest Path Analysis")
-    st.write(kpis['shortest_path_explanation'])
-    st.write(f"Shortest path from {kpis['shortest_path_source']} to {kpis['shortest_path_target']}:")
+    st.subheader("🔗 Chemin le plus court")
     st.write(kpis['shortest_path'])
 
-    st.subheader("6. Community Detection (Louvain)")
-    st.write(kpis['community_explanation'])
+    st.subheader("🧩 Clusters Louvain")
     st.pyplot(kpis['community_plot'])
 
-if __name__ == "__main__":
-    main()
+elif selected == "Contact":
+    st.title("📬 Contact")
+    st.info("📩 Pour toute question, contactez l’équipe Avisia : contact@avisia.fr")
