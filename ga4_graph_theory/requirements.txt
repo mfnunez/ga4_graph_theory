@@ -1,0 +1,13 @@
+streamlit
+streamlit_option_menu
+matplotlib
+pyvis
+networkx
+pandas
+python-louvain
+scipy
+google-cloud-aiplatform
+google-cloud-logging
+google-cloud-bigquery
+google-cloud-bigquery-storage
+db-dtypes
