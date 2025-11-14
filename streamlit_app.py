@@ -138,7 +138,7 @@ def load_nodes():
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def load_metrics():
-    """Load session and pageview metrics"""
+    """Load session, pageview, and purchase metrics"""
     # Get total page views from nodes
     nodes_df = load_nodes()
     total_pageviews = int(nodes_df['pageview_count'].sum())
@@ -147,7 +147,10 @@ def load_metrics():
     edges_df = load_edges()
     total_sessions = int(edges_df[edges_df['to_page'] == 'EXIT']['transition_count'].sum())
 
-    return total_sessions, total_pageviews
+    # Get total purchases - count nodes containing "confirmation-commande"
+    total_purchases = int(nodes_df[nodes_df['page_location'].str.contains('confirmation-commande', na=False)]['pageview_count'].sum())
+
+    return total_sessions, total_pageviews, total_purchases
 
 # ---- GRAPH CREATION ----
 def create_graph():
@@ -217,7 +220,7 @@ if selected == "Graph Analyse":
     st.title("📊 Analyse Graphique")
 
     # Load and display metrics at the top
-    total_sessions, total_pageviews = load_metrics()
+    total_sessions, total_pageviews, total_purchases = load_metrics()
 
     st.markdown(f"""
     <div class='metrics-container'>
@@ -228,6 +231,10 @@ if selected == "Graph Analyse":
         <div class='metric-card'>
             <div class='metric-label'>👁️ Total Page Views</div>
             <div class='metric-value'>{total_pageviews:,}</div>
+        </div>
+        <div class='metric-card'>
+            <div class='metric-label'>🛒 Total Purchases</div>
+            <div class='metric-value'>{total_purchases:,}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
