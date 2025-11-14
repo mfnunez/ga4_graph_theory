@@ -143,9 +143,9 @@ def load_metrics():
     nodes_df = load_nodes()
     total_pageviews = int(nodes_df['pageview_count'].sum())
 
-    # Get total sessions from edges - sum of all transition counts
+    # Get total sessions from edges - count EXIT transitions (each session has one exit)
     edges_df = load_edges()
-    total_sessions = int(edges_df['transition_count'].sum())
+    total_sessions = int(edges_df[edges_df['to_page'] == 'EXIT']['transition_count'].sum())
 
     return total_sessions, total_pageviews
 
