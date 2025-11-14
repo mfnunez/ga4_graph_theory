@@ -55,6 +55,30 @@ st.markdown("""
     font-weight: bold;
     line-height: 1.5;
 }
+.metrics-container {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+.metric-card {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-left: 4px solid #5e72e4;
+}
+.metric-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -111,6 +135,19 @@ def load_nodes():
     client = bigquery.Client(project=PROJECT_ID)
     query = f"SELECT * FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_NODES}`"
     return client.query(query).result().to_dataframe()
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_metrics():
+    """Load session and pageview metrics"""
+    # Get total page views from nodes
+    nodes_df = load_nodes()
+    total_pageviews = int(nodes_df['pageview_count'].sum())
+
+    # Get total sessions from edges - sum of all transition counts
+    edges_df = load_edges()
+    total_sessions = int(edges_df['transition_count'].sum())
+
+    return total_sessions, total_pageviews
 
 # ---- GRAPH CREATION ----
 def create_graph():
@@ -178,6 +215,23 @@ def calculate_kpis(G):
 # ---- PAGE ANALYSE ----
 if selected == "Graph Analyse":
     st.title("📊 Analyse Graphique")
+
+    # Load and display metrics at the top
+    total_sessions, total_pageviews = load_metrics()
+
+    st.markdown(f"""
+    <div class='metrics-container'>
+        <div class='metric-card'>
+            <div class='metric-label'>🎯 Total Sessions</div>
+            <div class='metric-value'>{total_sessions:,}</div>
+        </div>
+        <div class='metric-card'>
+            <div class='metric-label'>👁️ Total Page Views</div>
+            <div class='metric-value'>{total_pageviews:,}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     G = create_graph()
     html = create_pyvis_graph(G)
     components.html(html, height=720, scrolling=True)
